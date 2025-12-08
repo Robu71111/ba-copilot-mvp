@@ -4,53 +4,70 @@
  * Handles all API calls to the FastAPI backend
  */
 
-import axios from 'axios';
+import axios from "axios";
 
-// Use environment variable if available, fallback to production URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// --- Base URL --------------------------------------------------------------
+// Use env when available (baked at build time in CRA), otherwise fall back
+// to your Render backend. This prevents production from defaulting to localhost.
+const API_BASE_URL =
+  (process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim()) ||
+  "https://ba-copilot-backend.onrender.com";
 
+// Visible log so you can confirm what the deployed app actually used.
+console.log("[BA] API base =", API_BASE_URL);
 
-const api = axios.create({
+// --- Axios instance --------------------------------------------------------
+export const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { "Content-Type": "application/json" },
+  // With permissive CORS (allow_origins=["*"]), do NOT send cookies.
+  withCredentials: false,
+  timeout: 30000,
 });
+
+// Optional: request/response logs while debugging
+api.interceptors.request.use((config) => {
+  // Comment this out after debugging if it's noisy
+  console.log("[BA] →", config.method?.toUpperCase(), config.baseURL + config.url);
+  return config;
+});
+
+// Error handler
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      const detail =
+        error.response.data?.detail ||
+        error.response.data?.message ||
+        error.message ||
+        "Server error";
+      console.error("[BA] API Error:", {
+        url: error.config?.baseURL + error.config?.url,
+        status: error.response.status,
+        data: error.response.data,
+      });
+      return Promise.reject(new Error(detail));
+    }
+    if (error.request) {
+      console.error("[BA] Network Error (no response):", error.config?.baseURL + error.config?.url);
+      return Promise.reject(new Error("Network error. Please check your connection."));
+    }
+    console.error("[BA] Error:", error.message);
+    return Promise.reject(new Error(error.message));
+  }
+);
 
 // ========================================
 // PROJECT ENDPOINTS
 // ========================================
 
 export const projectApi = {
-  // Create new project
-  create: async (projectData) => {
-    const response = await api.post('/api/projects', projectData);
-    return response.data;
-  },
-
-  // Get all projects
-  getAll: async () => {
-    const response = await api.get('/api/projects');
-    return response.data;
-  },
-
-  // Get single project
-  get: async (projectId) => {
-    const response = await api.get(`/api/projects/${projectId}`);
-    return response.data;
-  },
-
-  // Delete project
-  delete: async (projectId) => {
-    const response = await api.delete(`/api/projects/${projectId}`);
-    return response.data;
-  },
-
-  // Get project summary
-  getSummary: async (projectId) => {
-    const response = await api.get(`/api/projects/${projectId}/summary`);
-    return response.data;
-  },
+  create: async (projectData) => (await api.post("/api/projects", projectData)).data,
+  getAll: async () => (await api.get("/api/projects")).data,
+  get: async (projectId) => (await api.get(`/api/projects/${projectId}`)).data,
+  delete: async (projectId) => (await api.delete(`/api/projects/${projectId}`)).data,
+  getSummary: async (projectId) => (await api.get(`/api/projects/${projectId}/summary`)).data,
 };
 
 // ========================================
@@ -58,35 +75,27 @@ export const projectApi = {
 // ========================================
 
 export const inputApi = {
-  // Upload document
   uploadDocument: async (projectId, file) => {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('project_id', projectId);
-
-    const response = await api.post('/api/input/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    formData.append("file", file);
+    formData.append("project_id", projectId);
+    return (
+      await api.post("/api/input/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+    ).data;
   },
 
-  // Submit text input
-  submitText: async (projectId, text, inputType = 'text') => {
-    const response = await api.post('/api/input/text', {
-      project_id: projectId,
-      text: text,
-      input_type: inputType,
-    });
-    return response.data;
-  },
+  submitText: async (projectId, text, inputType = "text") =>
+    (
+      await api.post("/api/input/text", {
+        project_id: projectId,
+        text,
+        input_type: inputType,
+      })
+    ).data,
 
-  // Get mock transcript
-  getMockTranscript: async () => {
-    const response = await api.get('/api/input/mock-transcript');
-    return response.data;
-  },
+  getMockTranscript: async () => (await api.get("/api/input/mock-transcript")).data,
 };
 
 // ========================================
@@ -94,21 +103,16 @@ export const inputApi = {
 // ========================================
 
 export const requirementsApi = {
-  // Extract requirements from text
-  extract: async (inputId, projectType, industry) => {
-    const response = await api.post('/api/requirements/extract', {
-      input_id: inputId,
-      project_type: projectType,
-      industry: industry,
-    });
-    return response.data;
-  },
+  extract: async (inputId, projectType, industry) =>
+    (
+      await api.post("/api/requirements/extract", {
+        input_id: inputId,
+        project_type: projectType,
+        industry,
+      })
+    ).data,
 
-  // Get requirements for input
-  get: async (inputId) => {
-    const response = await api.get(`/api/requirements/${inputId}`);
-    return response.data;
-  },
+  get: async (inputId) => (await api.get(`/api/requirements/${inputId}`)).data,
 };
 
 // ========================================
@@ -116,28 +120,12 @@ export const requirementsApi = {
 // ========================================
 
 export const storiesApi = {
-  // Generate user stories
-  generate: async (inputId, projectType) => {
-    const response = await api.post('/api/stories/generate', {
-      input_id: inputId,
-      project_type: projectType,
-    });
-    return response.data;
-  },
+  generate: async (inputId, projectType) =>
+    (await api.post("/api/stories/generate", { input_id: inputId, project_type: projectType })).data,
 
-  // Get user stories
-  get: async (inputId) => {
-    const response = await api.get(`/api/stories/${inputId}`);
-    return response.data;
-  },
+  get: async (inputId) => (await api.get(`/api/stories/${inputId}`)).data,
 
-  // Export to JIRA CSV
-  exportJira: async (stories) => {
-    const response = await api.post('/api/stories/export/jira', {
-      stories: stories,
-    });
-    return response.data;
-  },
+  exportJira: async (stories) => (await api.post("/api/stories/export/jira", { stories })).data,
 };
 
 // ========================================
@@ -145,29 +133,13 @@ export const storiesApi = {
 // ========================================
 
 export const criteriaApi = {
-  // Generate acceptance criteria
-  generate: async (storyId, userStoryText) => {
-    const response = await api.post('/api/criteria/generate', {
-      story_id: storyId,
-      user_story: userStoryText,
-    });
-    return response.data;
-  },
+  generate: async (storyId, userStoryText) =>
+    (await api.post("/api/criteria/generate", { story_id: storyId, user_story: userStoryText })).data,
 
-  // Get acceptance criteria
-  get: async (storyId) => {
-    const response = await api.get(`/api/criteria/${storyId}`);
-    return response.data;
-  },
+  get: async (storyId) => (await api.get(`/api/criteria/${storyId}`)).data,
 
-  // Export to Gherkin
-  exportGherkin: async (criteria, featureName) => {
-    const response = await api.post('/api/criteria/export/gherkin', {
-      criteria: criteria,
-      feature_name: featureName,
-    });
-    return response.data;
-  },
+  exportGherkin: async (criteria, featureName) =>
+    (await api.post("/api/criteria/export/gherkin", { criteria, feature_name: featureName })).data,
 };
 
 // ========================================
@@ -175,35 +147,9 @@ export const criteriaApi = {
 // ========================================
 
 export const healthApi = {
-  check: async () => {
-    const response = await api.get('/api/health');
-    return response.data;
-  },
-
-  checkApis: async () => {
-    const response = await api.get('/api/health/apis');
-    return response.data;
-  },
+  check: async () => (await api.get("/api/health")).data,
+  checkApis: async () => (await api.get("/api/health/apis")).data,
 };
 
-// Error handler
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response) {
-      // Server responded with error
-      console.error('API Error:', error.response.data);
-      throw new Error(error.response.data.detail || 'An error occurred');
-    } else if (error.request) {
-      // Request made but no response
-      console.error('Network Error:', error.request);
-      throw new Error('Network error. Please check your connection.');
-    } else {
-      // Something else happened
-      console.error('Error:', error.message);
-      throw new Error(error.message);
-    }
-  }
-);
-
+// Keep default export for any code that expects it.
 export default API_BASE_URL;
