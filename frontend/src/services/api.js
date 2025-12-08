@@ -7,8 +7,7 @@
 import axios from 'axios';
 
 // Use environment variable if available, fallback to production URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || window.location.origin;
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 
 const api = axios.create({
