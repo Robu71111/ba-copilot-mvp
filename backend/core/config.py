@@ -36,7 +36,7 @@ class APIConfig:
     GEMINI_AUDIO_API_KEY = os.getenv('GEMINI_AUDIO_API_KEY')
     
     # Main model for transcription, requirements, stories, criteria
-    GEMINI_MODEL = "gemini-1.5-flash"
+    GEMINI_MODEL = "gemini-2.5-flash"
     
     # Audio model for real-time recording
     GEMINI_AUDIO_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
